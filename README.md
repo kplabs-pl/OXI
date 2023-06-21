@@ -4,7 +4,7 @@ OXI is a graphical tool for labeling time series data. Labeling is typically use
 
 ![labeling GIF](./static/files/annotation.gif)
 
-This tool is based on the open-source [TRAINSET](https://github.com/Geocene/trainset) application by Geocene Inc. However, we significantly improved it in terms of performance and added a bunch of features for working with long multi-channel time series (such as satellite telemetry).
+This tool is based on the open-source [TRAINSET](https://github.com/Geocene/trainset) (commit [cb6fcb4](https://github.com/Geocene/trainset/commit/cb6fcb4aab3ead0c34ec650fa0a2af49f50ad256)) application by Geocene Inc. However, we significantly improved it in terms of performance and added a bunch of features for working with long multi-channel time series (such as satellite telemetry).
 
 
 ## Hosted Version

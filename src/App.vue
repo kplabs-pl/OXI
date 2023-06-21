@@ -11,18 +11,13 @@ export default {
 </script>
 
 <style>
-
-body {
-  font-family: 'Open Sans', sans-serif !important;
-}
-
 #app {
+  font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
-  color: #fff;
-  margin-top: 55px !important;
-  background: #000;
+  color: #2c3e50;
+  margin-top: 65px !important;
 }
 .container { 
   display: inline-block; 

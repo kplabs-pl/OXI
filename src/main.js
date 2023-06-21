@@ -6,6 +6,7 @@ import VModal from 'vue-js-modal'
 import router from './router'
 
 require('expose-loader?$!expose-loader?jQuery!jquery');
+require('jquery-csv');
 require('popper.js');
 require('bootstrap');
 require('bootstrap/dist/css/bootstrap.min.css');

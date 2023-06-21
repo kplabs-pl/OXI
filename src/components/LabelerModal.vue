@@ -14,7 +14,7 @@
         </button>
         <button type="button" class="btn btn-light modalBtn" id="rightBtn" :class="[computedColor.button, isFailed ? singleBtn : dualBtn]" @click="postOk()">
           <template v-if="!isExport">Ok</template>
-          <template v-else-if="isExport">Upload</template>
+          <template v-else-if="isExport">Load</template>
         </button>
       </div>
   </modal>
@@ -72,62 +72,65 @@ export default {
       return this.modalName == "export";
     },
     computedColor: function() {
-      return this.modalName == "export" ? this.exportColor : this.defaultColor;
+      return this.isExport ? this.exportColor : this.defaultColor;
     }
   }
 };
 </script>
 
 <style scoped>
+#modal {
+  z-index: 1031;
+}
 .exportHeader {
-  background-color: #7E4C64;
+  background-color: #009a93;
 }
 
 .exportContent {
-  color: #7E4C64;
+  color: #009a93;
 }
 
 .exportButton {
-  color: #7E4C64;
-  border-color: #7E4C64;
+  color: #009a93;
+  border-color: #009a93;
 }
 
 .exportButton:hover {
   color: #F4F4F4;
-  border-color: #7E4C64;
-  background-color: #7E4C64;
+  border-color: #009a93;
+  background-color: #009a93;
 }
 
 #modal >>> .exportBox {
   border-radius: 10px;
-  border: 3px solid #7E4C64;
+  border: 3px solid #009a93;
   position: fixed;
   top: 30%;
   left: 42%;
 }
 
 .defaultHeader {
-  background-color: #D84800;
+  background-color: #be9a55;
 }
 
 .defaultContent {
-  color: #D84800;
+  color: #be9a55;
 }
 
 .defaultButton {
-  color: #D84800;
-  border-color: #D84800;
+  color: #be9a55;
+  border-color: #be9a55;
 }
 
 .defaultButton:hover {
-  color: #F4F4F4;
-  border-color: #D84800;
-  background-color: #D84800;
+  color: #fff;
+  border-color: #be9a55;
+  background-color: #be9a55;
 }
 
 #modal >>> .defaultBox {
   border-radius: 10px;
-  border: 3px solid #D84800;
+  border: 3px solid #be9a55;
   position: fixed;
   top: 30%;
   left: 42%;
@@ -135,7 +138,7 @@ export default {
 
 .modalTitle {
   text-align: center;
-  color: #F4F4F4;
+  color: #fff;
   padding: 15px 15px 10px;
 }
 

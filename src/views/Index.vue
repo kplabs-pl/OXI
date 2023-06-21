@@ -2,22 +2,28 @@
   <BaseView class="container">
     <template v-slot:main-content>
       <div>
-        <h3 class="title">Welcome to TRAINSET</h3>
-        <button type="button" class="btn btn-lg btn-outline-danger upload" id="upload" @click="upload">Upload Data</button>
+        <h3 class="title">Welcome to OXI time series tool by KP Labs</h3>
+        <button type="button" class="btn btn-lg btn-outline-danger upload" id="upload" @click="upload" @dragover="onDragOver" @dragleave="onDragLeave" @drop="onDrop">
+          {{ uploadButtonText }}</button>
         <input type="file" id="upload-file" ref="fileInput" class="fileCheck" @change="fileCheck">
-        <a id="sampleCSV" href="/static/files/sample_trainset.csv" download>sample CSV</a>
+        <a id="sampleCSV" href="/static/files/sample_trainset.csv" download>Download sample CSV</a>
       </div>
+      <br>
+      <div><b>&#9432; This is a client-side application. Your data is not sent over the internet.</b></div>
       <br>
       <div class="info">
         <h5 class="subh">What is it?</h5>
-        TRAINSET is a graphical tool for labeling time series data. Labeling is typically used to record interesting points in time series data. For example, if you had temperature data from a sensor mounted to a stove, you could label points  that constitute cooking events. Labels could be used as-is or as a training set for machine learning algorithms. For example, TRAINSET could be used to build a training set for an algorithm that detects cooking events in temperature time series data.<br>
-        <img src="static/files/trainset.gif" alt="TRAINSET time series brushing and labeling animation" style="width:600px;height:391px;"><br><br>
-        
-        <h5 class="subh">Where did it come from?</h5>
-        TRAINSET evolved from a tool called <a href="https://github.com/geocene/sumsarizer" target="_blank">SUMSarizer</a>. SUMSarizer helps facilitate the application of ensemble machine learning tools to time series data. Most SUMSarizer users apply the tool to detect cooking events from temperature sensors called stove use monitoring systems (SUMS). SUMS are used to monitor cookstove adoption. The development of TRAINSET was funded by the NIH Clean Cooking Implementation Science Network with funding from the NIH Common Fund for Global Health. In addition to to the development of TRAINSET, NIH also supported further development of SUMSarizer. The original development of the first SUMSarizer was supported by the Center for Effective Global Action (CEGA) and Innovations for Poverty Action (IPA). SUMSarizer is an open-source R package available on <a href="https://github.com/geocene/sumsarizer" target="_blank">SUMSarizer's GitHub page</a>.<br><br>
-        
-        <h5 class="subh">Who made it?</h5>
-        TRAINSET is maintained by <a href="https://geocene.com" target="_blank">Geocene Inc.</a> with extensive contributions from Rush Kapoor, Ajay Pillarisetti, Jeremy Coyle, Skot Croshere, Marc Paré, Hamza Benkhay, and Danny Wilson.</br></br>
+        OXI is a graphical tool for labeling time series data. Labeling is typically used to record interesting or anomalous points in time series data. For example, if you had temperature data from a sensor mounted in the satellite, you could label points that constitute unexpected temperature drops. See <router-link v-bind:to="'/help'">Help</router-link> for more information.<br>
+		<br>
+        <img src="static/files/annotation.gif" alt="time series brushing and labeling animation" style="width:80%;height:40%;border: 1px solid #be9a55;" class="center"><br><br>
+
+        <h5 class="subh">About Us</h5>
+        This tool was designed by <a href="https://kplabs.space/" target="_blank">KP Labs</a>. KP Labs is a company that develops advanced solutions such as processing units (DPU, OBC with DPU), machine learning algorithms and software for edge processing on Smallsats. Its key domain is earth observation with a focus on hyperspectral data processing. The company was set up in 2016, with its headquarters in Poland. At the moment, the team of over 70 people develops products and projects for ESA, NASA and CSA. KP Labs also has its own product line called Smart Mission Ecosystem. For mission integrators and operators who need to build advanced spacecraft, the Smart Mission Ecosystem brings together the necessary hardware, software, and AI-powered algorithms for in-orbit data processing.
+        <br><br>
+        This tool is based on the open-source <a href="https://github.com/Geocene/trainset" target="_blank">TRAINSET</a> application by Geocene Inc. However, we significantly improved it in terms of performance and added a bunch of features for working with long multi-channel time series (such as satellite telemetry).
+        <br><br><br>
+        <h6 style="text-align: center;">Copyright KP Labs Sp. z o.o. © 2022</h6>
+        <br>
       </div>
     </template>
   </BaseView>
@@ -25,28 +31,44 @@
 
 <script>
 const { DateTime } = require("luxon");
-const strftime = require('strftime');
+const papa = require('papaparse');
 
 export default {
   name: 'index',
   data: function() {
     return {
-      errorUpload: false
+      errorUpload: false,
+      uploadButtonText: "Select or drop file here"
     }
   },
   props: {
     nextUp: Boolean
   },
   methods: {
+    onDragOver(event) {
+      event.preventDefault();
+      event.currentTarget.classList.add('button-ondrop');
+      this.uploadButtonText = "Drop the file here";
+    },
+    onDragLeave(event) {
+      event.currentTarget.classList.remove('button-ondrop');
+      this.uploadButtonText = "Select or drop file here";
+    },
+    onDrop(event) {
+      event.preventDefault();
+      document.getElementById("upload-file").files = event.dataTransfer.files;
+      this.fileCheck();
+    },
     // push Labeler.vue invalid landing
     error() {
       this.errorUpload = true;
+      this.uploadButtonText = "Select or drop file here";
       this.$router.push({
         name: 'labeler',
         params: {
-          csvData: [],
+          allData: [],
           minMax: [],
-          filename: "",
+          filename: "invalid",
           headerStr: "",
           isValid: false
         }
@@ -63,72 +85,99 @@ export default {
     },
     // check format validity of csv
     fileCheck () {
+      $("#upload").addClass('button-ondrop');
+      this.uploadButtonText = "Loading...";
       window.onerror = (errorMsg, url, lineNumber) => {
         this.error();
       }
-      var fileInput = document.getElementById("upload-file").files.item(0), fileText;
-      var filename = fileInput.name.split('.csv')[0];
-      var id = 0;
-      var reader = new FileReader();
-      var seriesList = new Set(), labelList = new Set(), plotDict = [], headerStr;
-      reader.readAsBinaryString(fileInput);
-      reader.onloadend = () => {
-        fileText = $.csv.toArrays(reader.result);
-        headerStr = fileText[0].toString();
-        for (var i = 1; i < fileText.length ; i++) {
-          var dateMatches = fileText[i][1].match(/^((\d{4})-(\d{2})-(\d{2})T(\d{2})\:(\d{2})\:(\d{2})(.(\d{3}))?(([+-](\d{2})\:?(\d{2}))|Z))$/)
-          var labelMatches = fileText[i][3].match(/^[a-zA-Z0-9_-]{0,16}$/)
-          var parsedValue = Number(fileText[i][2]).toString()
-          if (fileText[i].length === 4 
-            && dateMatches
-            && labelMatches
-            && parsedValue !== Number.NaN) {
-            var date = DateTime.fromISO(fileText[i][1], {setZone: true});
-            var series = fileText[i][0];
+      const fileInput = document.getElementById("upload-file").files.item(0);
+      const filename = fileInput.name.split('.csv')[0];
+      const that = this;
+      // const maxDataRows = 4000000;  // max without export - (even more available to parse before plotting!)
+      // const maxDataRows = 3000000; // works most of the time
+      const maxDataRows = 2000000;
+
+
+      function onParseComplete(parsedCSV) {
+        const headerStr = parsedCSV.meta.fields.toString();
+        const csvData = parsedCSV.data;
+        
+        function formatName(name){
+          // Change null to empty string or trim whitespaces
+          return name === null ? '' : String(name).trim()
+        }
+
+        let seriesList = new Set(), labelList = new Set();
+        let allData = new Array(csvData.length);  // preallocate for speed
+
+        for (let i = 0; i < csvData.length; i++) {
+          const series = formatName(csvData[i].channel);
+          const timestamp = DateTime.fromISO(csvData[i].timestamp, {setZone: true});
+          const value = parseFloat(csvData[i].value);
+          const label = formatName(csvData[i].label);
+
+          const seriesMatches = series !== '';
+          const timestampMatches = timestamp.isValid;
+          const valueMatches = !isNaN(value);
+
+          if (seriesMatches && timestampMatches && valueMatches) {
             seriesList.add(series);
-            if (fileText[i][3]) {
-              labelList.add(fileText[i][3]);
+            if (label !== '') {
+              labelList.add(label);
             }
-            plotDict.push({
-              'id': id.toString(),
-              'val': parsedValue,
-              'time': date,
+            allData[i] = {
+              'val': value,
+              'time': timestamp,
               'series': series,
-              'label': fileText[i][3]
-            });
-            id++;
+              'label': label
+            };
           } else {
-            if (!(fileText[i].length === 4)) {
-              console.log('line parse error in line ' + (i+1));
-            } else if (!labelMatches) {
-              console.log('label parse error in line ' + (i+1));
-            } else if (parsedValue === Number.NaN) {
+            if (!seriesMatches) {
+              console.log('channel parse error in line ' + (i+1));
+            } else if (!valueMatches) {
               console.log('value parse error in line ' + (i+1));
             } else {
               console.log('date parse error in line ' + (i+1));
             }
-            this.error();
+            that.error();
             break;
           }
         }
+
+        if (allData.length == maxDataRows) {
+          console.log(`Data truncated at ${maxDataRows} element`);
+        }
+
         // if there was no error parsing csv
-        if (!this.errorUpload) {
+        if (!that.errorUpload) {
           seriesList = Array.from(seriesList);
           labelList = Array.from(labelList);
-
-          this.$router.push({
+          that.$router.push({
             name: 'labeler',
             params: {
-              csvData: plotDict,
+              allData: allData,
               filename: filename,
               headerStr: headerStr,
-              seriesList: seriesList,
-              labelList: labelList,
-              isValid: true
+              seriesList: seriesList.sort(),
+              labelList: labelList.sort(),
+              isValid: true,
+              truncated: allData.length === maxDataRows ? maxDataRows : 0,
             }
           });
         }
       }
+
+      papa.parse(fileInput, {
+        delimiter: ",",
+        header: true,
+        dynamicTyping: false,
+        fastMode: true,
+        skipEmptyLines: true,
+        worker: true,
+        complete: onParseComplete,
+        preview: maxDataRows
+      });
+
     }
   },
   created() {
@@ -138,10 +187,21 @@ export default {
 </script>
 
 <style scoped>
-#upload { margin-top: 20px; border-width: 3px; border-color: #7E4C64; color: #7E4C64; padding: 15px 60px; }
-#upload:hover {  background: #7E4C64; color: #f4f4f4; }
+#upload { margin-top: 20px; border: 1px solid #009a93; background: #009a93; color: #fff; padding: 15px 60px; width: 50%; min-height: 100px; border-radius: 0px;}
+#upload:hover {  background: #007e84; border-color: #007e84; color: #fff; }
+.button-ondrop {  background: #007e84; border-color: #007e84; color: #fff !important; }
 #upload-file { display: none; }
+#upload:focus {
+  box-shadow: 0 0 0 0.2rem rgb(190 154 85 / 50%) !important;
+}
+
 .subh { font-weight: 900 !important; }
+.center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  width: 50%;
+}
 #sampleCSV {
   display: block;
   padding-top: 10px;
@@ -149,4 +209,9 @@ export default {
   margin-left: 40%;
   margin-right: 40%;
 }
+
+a {
+  color: #009a93;
+}
+
 </style>

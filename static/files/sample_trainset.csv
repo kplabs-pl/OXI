@@ -1,4 +1,4 @@
-series,timestamp,value,label
+channel,timestamp,value,label
 series_a,2019-01-14T16:26:37.000Z,29.4375,
 series_b,2019-01-14T16:26:37.000Z,-0.5625,
 series_c,2019-01-14T16:26:37.000Z,-154.8125,

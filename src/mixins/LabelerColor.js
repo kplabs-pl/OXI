@@ -14,9 +14,9 @@ export default {
   },
   methods: {
     generateNextColor() {
-      var retColor = this.colorCSV.find(color => color.used == false);
+      let retColor = this.colorCSV.find(color => color.used == false);
       if (typeof retColor === "undefined") {
-        var retCode = this.colorCSV[this.fullColorIndex].code;
+        let retCode = this.colorCSV[this.fullColorIndex].code;
         this.fullColorIndex += 1;
         if (this.fullColorIndex == this.colorCSV.length) {
           this.fullColorIndex = 0;
@@ -27,7 +27,7 @@ export default {
       return retColor.code
     },
     setUnusedColor(colorCode) {
-      var toChange = this.colorCSV.find(color => color.code == colorCode);
+      let toChange = this.colorCSV.find(color => color.code == colorCode);
       toChange.used = false;
     }
   }

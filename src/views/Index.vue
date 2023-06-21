@@ -15,7 +15,7 @@
         <h5 class="subh">What is it?</h5>
         OXI is a graphical tool for labeling time series data. Labeling is typically used to record interesting or anomalous points in time series data. For example, if you had temperature data from a sensor mounted in the satellite, you could label points that constitute unexpected temperature drops. See <router-link v-bind:to="'/help'">Help</router-link> for more information.<br>
 		<br>
-        <img src="static/files/annotation.gif" alt="time series brushing and labeling animation" style="width:80%;height:40%;border: 1px solid #be9a55;" class="center"><br><br>
+        <img src="static/files/annotation.gif" alt="time series brushing and labeling animation" style="width:80%;height:40%;border: 2px solid #be9a55;" class="center"><br><br>
 
         <h5 class="subh">About Us</h5>
         This tool was designed by <a href="https://kplabs.space/" target="_blank">KP Labs</a>. KP Labs is a company that develops advanced solutions such as processing units (DPU, OBC with DPU), machine learning algorithms and software for edge processing on Smallsats. Its key domain is earth observation with a focus on hyperspectral data processing. The company was set up in 2016, with its headquarters in Poland. At the moment, the team of over 70 people develops products and projects for ESA, NASA and CSA. KP Labs also has its own product line called Smart Mission Ecosystem. For mission integrators and operators who need to build advanced spacecraft, the Smart Mission Ecosystem brings together the necessary hardware, software, and AI-powered algorithms for in-orbit data processing.
@@ -101,17 +101,25 @@ export default {
       function onParseComplete(parsedCSV) {
         const headerStr = parsedCSV.meta.fields.toString();
         const csvData = parsedCSV.data;
-        
+
         function formatName(name){
           // Change null to empty string or trim whitespaces
           return name === null ? '' : String(name).trim()
         }
 
+        const header_fields = parsedCSV.meta.fields;
+        if(JSON.stringify(header_fields.slice(1)) !== JSON.stringify(["timestamp", "value", "label"])) {
+          console.log("invalid csv header. Must include <series_col_name>, timestamp, value, label.");
+          that.error();
+          return;
+        }
+
+        const series_header = header_fields[0]
         let seriesList = new Set(), labelList = new Set();
         let allData = new Array(csvData.length);  // preallocate for speed
 
         for (let i = 0; i < csvData.length; i++) {
-          const series = formatName(csvData[i].channel);
+          const series = formatName(csvData[i][series_header]);
           const timestamp = DateTime.fromISO(csvData[i].timestamp, {setZone: true});
           const value = parseFloat(csvData[i].value);
           const label = formatName(csvData[i].label);
@@ -133,7 +141,7 @@ export default {
             };
           } else {
             if (!seriesMatches) {
-              console.log('channel parse error in line ' + (i+1));
+              console.log('series name parse error in line ' + (i+1));
             } else if (!valueMatches) {
               console.log('value parse error in line ' + (i+1));
             } else {

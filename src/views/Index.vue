@@ -60,7 +60,7 @@ export default {
       this.fileCheck();
     },
     // push Labeler.vue invalid landing
-    error() {
+    error(error_string) {
       this.errorUpload = true;
       this.uploadButtonText = "Select or drop file here";
       this.$router.push({
@@ -70,7 +70,8 @@ export default {
           minMax: [],
           filename: "invalid",
           headerStr: "",
-          isValid: false
+          isValid: false,
+          error_str: error_string
         }
       });
     },
@@ -88,7 +89,7 @@ export default {
       $("#upload").addClass('button-ondrop');
       this.uploadButtonText = "Loading...";
       window.onerror = (errorMsg, url, lineNumber) => {
-        this.error();
+        this.error(errorMsg);
       }
       const fileInput = document.getElementById("upload-file").files.item(0);
       const filename = fileInput.name.split('.csv')[0];
@@ -109,8 +110,9 @@ export default {
 
         const header_fields = parsedCSV.meta.fields;
         if(JSON.stringify(header_fields.slice(1)) !== JSON.stringify(["timestamp", "value", "label"])) {
-          console.log("invalid csv header. Must include <series_col_name>, timestamp, value, label.");
-          that.error();
+          const error_log = "invalid csv header. Must include <series_col_name>, timestamp, value, label." ;
+          console.log(error_log);
+          that.error(error_log);
           return;
         }
 
@@ -140,19 +142,23 @@ export default {
               'label': label
             };
           } else {
+            let error_log = '';
             if (!seriesMatches) {
-              console.log('series name parse error in line ' + (i+1));
+              error_log = 'series name parse error in line ' + (i+1);
+              console.log(error_log);
             } else if (!valueMatches) {
-              console.log('value parse error in line ' + (i+1));
+              error_log = 'value parse error in line ' + (i+1);
+              console.log(error_log);
             } else {
-              console.log('date parse error in line ' + (i+1));
+              error_log = 'date parse error in line ' + (i+1);
+              console.log(error_log);
             }
-            that.error();
+            that.error(error_log);
             break;
           }
         }
 
-        if (allData.length == maxDataRows) {
+        if (allData.length === maxDataRows) {
           console.log(`Data truncated at ${maxDataRows} element`);
         }
 

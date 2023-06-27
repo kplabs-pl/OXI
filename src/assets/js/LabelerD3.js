@@ -1,6 +1,27 @@
 import * as d3 from "d3"
 import { largestTriangleThreeBucket } from "d3fc-sample";
 const { DateTime } = require("luxon");
+const fillMissingAnnotationsAfterDownsampling = require('./FillMissingAnnotationsAfterDownsampling');
+
+
+// part of package https://github.com/m-gagne/limit.js
+Function.prototype.throttle = function (milliseconds, context) {
+    var baseFunction = this,
+        lastEventTimestamp = null,
+        limit = milliseconds;
+
+    return function () {
+        var self = context || this,
+            args = arguments,
+            now = Date.now();
+
+        if (!lastEventTimestamp || now - lastEventTimestamp >= limit) {
+            lastEventTimestamp = now;
+            baseFunction.apply(self, args);
+        }
+    };
+};
+
 
 d3.selection.prototype.moveToFront = function() {
   return this.each(function(){
@@ -233,15 +254,15 @@ export function drawLabeler(plottingApp) {
   .attr("preserveAspectRatio", "xMinYMid meet");
 
   d3.select("#maindiv")
-      .insert("text", "#mainChart")
-        .attr("id", "chartTitle")
-        .attr("class", "chartText")
-        .attr("x", (plottingApp.width / 2))
-        .attr("y", 0)
-        .style("padding-left", "3.57%")
-        .style("font-size", "20px")
-        .attr("viewBox", "0 0 " + viewBox_width + " " + viewBox_height)
-        .attr("preserveAspectRatio", "xMinYMid meet");
+  .insert("text", "#mainChart")
+  .attr("id", "chartTitle")
+  .attr("class", "chartText")
+  .attr("x", (plottingApp.width / 2))
+  .attr("y", 0)
+  .style("padding-left", "3.57%")
+  .style("font-size", "20px")
+  .attr("viewBox", "0 0 " + viewBox_width + " " + viewBox_height)
+  .attr("preserveAspectRatio", "xMinYMid meet");
 
   // set instrSelect top margin
   $("#instrSelect").css("margin-top", viewBox_height + 50);
@@ -263,14 +284,14 @@ export function drawLabeler(plottingApp) {
   .attr("transform", "translate(" + (plottingApp.maindiv_width / 2)  + "," + plottingApp.label_margin.small + ")")
   .style("visibility", "hidden");
 
-  // create clipPath for svg elements (prevents svg elements outside of main window)
+  // create clipPath for svg elements (prevents svg elements outside the main window)
   plottingApp.svg.append("defs").append("clipPath")
   .attr("id", "clip")
   .append("rect")
   .attr("width", plottingApp.width)
   .attr("height", plottingApp.main_height);
 
-  //main window
+  // main window
   plottingApp.main = plottingApp.svg.append("g")
   .attr("class", "main")
   .attr("transform", "translate(" + plottingApp.main_margin.left + "," + plottingApp.main_margin.top + ")");
@@ -425,6 +446,8 @@ export function drawLabeler(plottingApp) {
     // create main and context brushes
     plottingApp.plot.main_brush = plottingApp.main.append("g")
     .attr("class", "main_brush")
+    .on("pointerenter pointermove", plottingApp.pointermoved.throttle(100))
+    .on("pointerleave", plottingApp.pointerleave)
     .call(plottingApp.main_brushX);
 
     plottingApp.plot.context_brush = plottingApp.context.append("g")
@@ -489,8 +512,8 @@ export function drawLabeler(plottingApp) {
   }
 
   function inSelectedTimeRange(d){
-    const x_time_range = plottingApp.main_xscale.domain();
-    return x_time_range[0] <= d.time & d.time <= x_time_range[1]
+    const [low, high] = plottingApp.main_xscale.domain();
+    return low <= d.time & d.time <= high
   }
 
   /* update yaxes bounds based on selected and reference series */
@@ -728,18 +751,18 @@ export function drawLabeler(plottingApp) {
 
     if (mainData.length > plottingApp.maxPointsInMainPlot) {
       d3.select("#downsampleWarning").style("visibility", "visible")
+      mainData = fillMissingAnnotationsAfterDownsampling(downsampleData(mainData, plottingApp.maxPointsInMainPlot), mainData.filter(d => d.label !== ''));
     } else {
       d3.select("#downsampleWarning").style("visibility", "hidden")
     }
-    mainData = downsampleData(mainData, plottingApp.maxPointsInMainPlot);
-    mainData = fillAnnotatedMainData(mainData);
 
     // handles ref series
     let secondaryData = null;
     if (plottingApp.refSeries !== "" && plottingApp.refSeries !== plottingApp.selectedSeries) {
         secondaryData = plottingApp.ref_data.filter(inSelectedTimeRange);
-        secondaryData = downsampleData(secondaryData, plottingApp.maxPointsInMainPlot);
-        secondaryData = fillAnnotatedSecondaryData(secondaryData);
+        if (secondaryData.length > plottingApp.maxPointsInMainPlot) {
+          secondaryData = fillMissingAnnotationsAfterDownsampling(downsampleData(secondaryData, plottingApp.maxPointsInMainPlot), secondaryData.filter(d => d.label !== ''));
+        }
     }
 
     const totalData = secondaryData ? [...mainData, ...secondaryData] : mainData;
@@ -797,7 +820,7 @@ export function drawLabeler(plottingApp) {
           updateLocalStorage();
         });
 
-    toggleHoverinfo(true);
+    toggleHoverinfo();
     updateSelection(plottingApp);
 
     // update xAxis svg element
@@ -839,40 +862,7 @@ export function drawLabeler(plottingApp) {
   }
 
   function fillAnnotatedMainData(data) {
-    const all_labels = plottingApp.main_data.filter(d => d.label !== '')
-    return fillAnnotatedData(data, all_labels);
-  }
-
-  function fillAnnotatedSecondaryData(data) {
-    const all_labels = plottingApp.ref_data.filter(d => d.label !== '')
-    return fillAnnotatedData(data, all_labels);
-  }
-
-  // ensure that all the annotated blocks are visible in the plots
-  function fillAnnotatedData(data, all_labels) {
-    let additional_context_points = [];
-    for (let i = 0; i < data.length - 1; i++) {
-      const p1 = data[i];
-      if (p1.label !== '') {
-        continue
-      }
-
-      const p2 = data[i + 1];
-      if (p2.label !== '') {
-        continue
-      }
-
-      const labels_to_add = all_labels.filter(d => p1.time < d.time & d.time < p2.time);
-      if (labels_to_add.length === 0) {
-        continue
-      }
-
-      // Add at least one point representing labels missing in the context plot
-      additional_context_points.push(labels_to_add[Math.floor(labels_to_add.length / 2)])
-    }
-
-    data = data.concat(additional_context_points).sort((a, b) => a.time - b.time);
-    return data;
+    return fillMissingAnnotationsAfterDownsampling(data, plottingApp.main_data.filter(d => d.label !== ''));
   }
 
   function brushedMain() {
@@ -881,28 +871,31 @@ export function drawLabeler(plottingApp) {
       return;
     }
 
+    let data_has_changed;
     if (plottingApp.annotateIn2D) {
       // convert pixels defining brush into actual times
       const xmin = plottingApp.main_xscale.invert(extent[0][0]),
             xmax = plottingApp.main_xscale.invert(extent[1][0]),
             ymax = plottingApp.main_yscale.invert(extent[0][1]),
             ymin = plottingApp.main_yscale.invert(extent[1][1]);
-      updateBrushedDataXY(xmin, ymin, xmax, ymax);
+      data_has_changed = updateBrushedDataXY(xmin, ymin, xmax, ymax);
     } else {
       const xmin = plottingApp.main_xscale.invert(extent[0]),
             xmax = plottingApp.main_xscale.invert(extent[1]);
-      updateBrushedDataX(xmin, xmax);
+      data_has_changed = updateBrushedDataX(xmin, xmax);
     }
 
-    updateContextPlot();
-    updateSelection(plottingApp);
+    if (data_has_changed) {
+      updateContextPlot();
+      updateSelection(plottingApp);
+      updateLocalStorage();
+    }
+
     if (plottingApp.annotateIn2D) {
       plottingApp.plot.main_brush.call(plottingApp.main_brush.move, null);
     } else {
       plottingApp.plot.main_brush.call(plottingApp.main_brushX.move, null);
     }
-
-    updateLocalStorage();
   }
 
   function brushedContext() {
@@ -923,52 +916,48 @@ export function drawLabeler(plottingApp) {
       dataToAnnotate = plottingApp.main_data
     }
 
-    dataToAnnotate.filter(d => (d.time >= brush_xmin) && (d.time <= brush_xmax)).map(function (d) {
-      d.label = plottingApp.shiftKey ? '' : plottingApp.selectedLabel;
-    })
+    const brushValue =  plottingApp.shiftKey ? '' : plottingApp.selectedLabel;
+    return dataToAnnotate.filter(d => (d.time >= brush_xmin) && (d.time <= brush_xmax) && (d.label !== brushValue))
+                         .map(function (d) { d.label = brushValue; })
+                         .length > 0; // return true if there were any changes
   }
-
 
   // Find the nodes within the specified rectangle.
   function updateBrushedDataXY(brush_xmin, brush_ymin, brush_xmax, brush_ymax) {
-    plottingApp.main_data.filter(d => (d.time >= brush_xmin) && (d.time <= brush_xmax) && (d.val >= brush_ymin) && (d.val <= brush_ymax)).map(function (d) {
-      d.label = plottingApp.shiftKey ? '' : plottingApp.selectedLabel;
-    })
+    const brushValue =  plottingApp.shiftKey ? '' : plottingApp.selectedLabel;
+    return plottingApp.main_data.filter(d => (d.time >= brush_xmin) && (d.time <= brush_xmax) && (d.val >= brush_ymin) && (d.val <= brush_ymax) && (d.label !== brushValue))
+                                .map(function (d) { d.label = brushValue; })
+                                .length > 0; // return true if there were any changes
   }
 
-  /* if b == true, enable mouseover info modal
-     else, disable mouseover info modal */
-  function toggleHoverinfo(b) {
-    if (b) {
-      // enable mouseover/mouseout hoverinfo
-      plottingApp.main.selectAll(".point")
-      .on("mouseover", function(point) {
-          plottingApp.hoverTimer = setTimeout(function() {
+  function toggleHoverinfo() {
+    // enable mouseover hoverinfo
+    plottingApp.main.selectAll(".point")
+        .on("mouseover", function (point) {
             updateHoverinfo(point.actual_time, point.val, point.label, plottingApp);
-          }, 150);
         })
-      .on("mouseout", function() {
-          clearTimeout(plottingApp.hoverTimer);
-          plottingApp.hoverTimer = null;
-          updateHoverinfo("", "", "", plottingApp);
-      });
-    } else {
-      // clear hoverinfo and timeout
-      if (plottingApp.hoverTimer) {
-        clearTimeout(plottingApp.hoverTimer);
-        updateHoverinfo("", "", "", plottingApp);
-      }
-
-      // replace handler
-      plottingApp.main.selectAll(".point")
-      .on("mouseover", function(e) {
-        e.preventDefault();
-      })
-      .on("mouseout", function(e) {
-        e.preventDefault();
-      });
     }
 
+  plottingApp.pointermoved = function pointermoved(event) {
+    const [cursorX, cursorY] = d3.mouse(plottingApp.plot.main_brush.node());
+    const cursorXInvert = plottingApp.main_xscale.invert(cursorX);
+    const cursorAbsoluteDate = DateTime.fromJSDate(cursorXInvert);
+
+    if (plottingApp.annotateIn2D) {
+      const cursorAbsoluteValue = plottingApp.main_yscale.invert(cursorY);
+      updateHoverinfo(cursorAbsoluteDate, cursorAbsoluteValue, "", plottingApp);
+    }
+    else {
+      let i = d3.bisectRight(plottingApp.main_data.map(x => x.time.ts), cursorAbsoluteDate.ts);
+      if (i >= plottingApp.main_data.length) {
+        i -= 1;
+      }
+      const point = plottingApp.main_data[i];
+      updateHoverinfo(cursorAbsoluteDate, point.val, point.label, plottingApp);}
+  }
+
+  plottingApp.pointerleave = function pointerleave() {
+    updateHoverinfo("", "", "", plottingApp);
   }
 
   function reformatTime(d) {

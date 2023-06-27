@@ -14,7 +14,7 @@
       </ul>
     </template>
     <template v-slot:main-content>
-      <div id="hoverbox"> 
+      <div id="hoverbox">
         <div id="hoverinfo" class="card chartText" style="display: none;">
           <div class="card-subtitle">Time: {{ hoverinfo.time }}</div>
           <div class="card-subtitle">Value: {{ hoverinfo.val }}</div>
@@ -108,8 +108,8 @@
       <LabelerModal id="modal" ref="modalComponent" @clicked-ok="modalOk" @closed="postModalClose" :modal-name="modal.name" :modal-header="modal.header">
         <template v-slot:content>
           <template v-if="modal.name == 'edit'">
-            <input type="text" class="bounds" id="lowBounds" v-model="axisBounds[0]"/> 
-            - 
+            <input type="text" class="bounds" id="lowBounds" v-model="axisBounds[0]"/>
+            -
             <input type="text" class="bounds" id="highBounds" v-model="axisBounds[1]"/>
           </template>
           <template v-else-if="modal.name == 'clear'">
@@ -125,7 +125,7 @@
             Are you sure you want to delete label: {{ selectedLabel }}
           </template>
           <template v-else-if="modal.name == 'add'">
-            <input type="text" id="inputLabel" v-model="inputLabel"/> 
+            <input type="text" id="inputLabel" v-model="inputLabel"/>
           </template>
         </template>
       </LabelerModal>
@@ -170,6 +170,7 @@ export default {
     labelList: Array,
     isValid: Boolean,
     truncated: Number,
+    error_str: String,
   },
   data: function() {
     return {
@@ -232,7 +233,7 @@ export default {
       $("#clear").hide();
       $("#export").hide();
       $("#hoverbox").hide();
-      this.modalHandler().openUploadFailed();
+      this.modalHandler().openUploadFailed(this.error_str);
     } else {
       this.routeHandler().goHome();
     }
@@ -321,10 +322,10 @@ export default {
           self.modal.header = "Add label";
           self.$refs.modalComponent.show();
         },
-        openUploadFailed: function() {
+        openUploadFailed: function(error_str) {
           self.modal.name = "upload_failed";
           self.modal.header = "Loading Failed";
-          self.modal.failMessage = "Make sure data is in proper format. Check console log for more information.";
+          self.modal.failMessage = "Make sure data is in proper format. Error: \n" + error_str;
           self.$refs.modalComponent.show();
         },
         openAxisFailed: function() {
@@ -496,7 +497,7 @@ export default {
         $("#rAnnotateMultiple").hide();
       }
 
-      // set hoverinfo right margin 
+      // set hoverinfo right margin
       // TODO: MOVE HOVERINFO OVER
 
     },
@@ -534,12 +535,20 @@ export default {
     changeBrush () {
       if (plottingApp.annotateIn2D) {
         plottingApp.plot.main_brush.remove();
-        plottingApp.plot.main_brush = plottingApp.main.append("g").attr("class", "main_brush").call(plottingApp.main_brush);
+        plottingApp.plot.main_brush = plottingApp.main.append("g")
+          .attr("class", "main_brush")
+          .on("pointerenter pointermove", plottingApp.pointermoved.throttle(100))
+          .on("pointerleave", plottingApp.pointerleave)
+          .call(plottingApp.main_brush);
         plottingApp.plot.main_brush.moveToBack();
         $("g.main_brush rect").css("cursor", "crosshair");
       } else {
         plottingApp.plot.main_brush.remove();
-        plottingApp.plot.main_brush = plottingApp.main.append("g").attr("class", "main_brush").call(plottingApp.main_brushX);
+        plottingApp.plot.main_brush = plottingApp.main.append("g")
+          .attr("class", "main_brush")
+          .on("pointerenter pointermove", plottingApp.pointermoved.throttle(100))
+          .on("pointerleave", plottingApp.pointerleave)
+          .call(plottingApp.main_brushX);
         plottingApp.plot.main_brush.moveToBack();
         $("g.main_brush rect").css("cursor", "col-resize");
       }

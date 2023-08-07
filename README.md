@@ -30,3 +30,23 @@ npm run start
 ## About us
 
 This tool was designed by [KP Labs ](https://kplabs.space). KP Labs is a company that develops advanced solutions such as processing units (DPU, OBC with DPU), machine learning algorithms and software for edge processing on Smallsats. Its key domain is earth observation with a focus on hyperspectral data processing. The company was set up in 2016, with its headquarters in Poland. At the moment, the team of over 70 people develops products and projects for ESA, NASA and CSA. KP Labs also has its own product line called Smart Mission Ecosystem. For mission integrators and operators who need to build advanced spacecraft, the Smart Mission Ecosystem brings together the necessary hardware, software, and AI-powered algorithms for in-orbit data processing.
+
+## Citing this work
+
+The detailed description of OXI is published in the SoftwareX journal: [https://doi.org/10.1016/j.softx.2023.101476](https://doi.org/10.1016/j.softx.2023.101476)
+
+Please use the following Bibtex entry to cite OXI.
+
+```
+@article{ruszczak_oxi_2023,
+	title = {{OXI}: {An} online tool for visualization and annotation of satellite time series data},
+	volume = {23},
+	issn = {2352-7110},
+	doi = {10.1016/j.softx.2023.101476},
+	journal = {SoftwareX},
+	author = {Ruszczak, Bogdan and Kotowski, Krzysztof and Andrzejewski, Jacek and Haskamp, Christoph and Nalepa, Jakub},
+	month = jul,
+	year = {2023},
+	note = {Publisher: Elsevier}
+}
+```
